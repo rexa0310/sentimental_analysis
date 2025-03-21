@@ -21,16 +21,16 @@ A **Sentiment Analysis API** powered by **FastAPI**, **Deep Learning**, and **Gl
 git clone https://github.com/your-username/sentiment-analysis-api.git
 cd sentiment-analysis-api
 
-2️⃣ Create a Virtual Environment
+### 2️⃣ Create a Virtual Environment
 python -m venv venv
 source venv/bin/activate   # MacOS/Linux
 venv\Scripts\activate      # Windows
 
-3️⃣ Install Dependencies
+### 3️⃣ Install Dependencies
 pip install -r requirements.txt
 
 
-🏆 Technologies Used
+### 🏆 Technologies Used
 Python 🐍
 FastAPI ⚡
 TensorFlow/Keras 🤖
@@ -39,7 +39,7 @@ Uvicorn 🚀
 Pickle (Tokenizer Serialization)
 
 
-📌 Contributing
+### 📌 Contributing
 Feel free to submit issues or pull requests! Contributions are always welcome. 💡
 
 Fork the repo
