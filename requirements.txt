@@ -1,7 +1,14 @@
+gensim
 numpy
 pandas
-matplotlib
-seaborn
 scikit-learn
 nltk
 tensorflow
+seaborn
+matplotlib
+torch
+transformers
+keras
+pickle5
+fastapi
+uvicorn
