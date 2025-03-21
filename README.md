@@ -20,15 +20,18 @@ A **Sentiment Analysis API** powered by **FastAPI**, **Deep Learning**, and **Gl
 ```bash
 git clone https://github.com/your-username/sentiment-analysis-api.git
 cd sentiment-analysis-api
+```
 
 ### 2️⃣ Create a Virtual Environment
+```bash
 python -m venv venv
 source venv/bin/activate   # MacOS/Linux
 venv\Scripts\activate      # Windows
-
+```
 ### 3️⃣ Install Dependencies
+```bash
 pip install -r requirements.txt
-
+```
 
 ### 🏆 Technologies Used
 Python 🐍
