@@ -1,61 +1,87 @@
-from __future__ import division, print_function
-# coding=utf-8
-import sys
-import os
-import glob
-import re
-import numpy as np
+from fastapi import FastAPI, Form, HTTPException
 import pickle
+import numpy as np
+import os
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.layers import LSTM
+from tensorflow.keras.saving import register_keras_serializable
+from tensorflow.keras.optimizers import Adam
+from keras import backend as K
 
-# Keras
-from keras.applications.imagenet_utils import preprocess_input, decode_predictions
-from keras.models import load_model
-from keras.preprocessing import image
-from keras.preprocessing.sequence import pad_sequences
+app = FastAPI()
 
-from flask import Flask, render_template, request, Response, flash
+# ✅ Debugging: Print current working directory and check model existence
+print("Current Working Directory:", os.getcwd())
+if os.path.exists("Models"):
+    print("Files in Models Directory:", os.listdir("Models"))
+else:
+    print("⚠️ 'Models' directory not found!")
 
+# ✅ Registering custom F1-score function
+@register_keras_serializable()
+def f1_score(y_true, y_pred):
+    y_pred = K.round(y_pred)  # Convert probabilities to binary values
+    tp = K.sum(K.cast(y_true * y_pred, "float32"))  # True Positives
+    fp = K.sum(K.cast((1 - y_true) * y_pred, "float32"))  # False Positives
+    fn = K.sum(K.cast(y_true * (1 - y_pred), "float32"))  # False Negatives
 
-app = Flask(__name__)
+    precision = tp / (tp + fp + K.epsilon())
+    recall = tp / (tp + fn + K.epsilon())
 
-MODEL_PATH = 'Models/best_model.h5'
+    return 2 * (precision * recall) / (precision + recall + K.epsilon())
 
-model = load_model(MODEL_PATH)
+# ✅ Register custom LSTM layer to avoid errors
+@register_keras_serializable()
+class CustomLSTM(LSTM):
+    pass  # Inherits everything from LSTM
 
-with open('Models/tokenizer.pickle', 'rb') as handle:
-    tokenizer = pickle.load(handle)
+# ✅ Paths for model and tokenizer
+MODEL_PATH = "Models/best_model.keras"  # Relative path for portability
+TOKENIZER_PATH = "tokenizer.pickle"
 
-print('Model loaded. Check http://127.0.0.1:5000/')
+# ✅ Ensure model & tokenizer exist
+if not os.path.exists(MODEL_PATH):
+    raise FileNotFoundError(f"❌ Model file '{MODEL_PATH}' not found!")
 
-def predict_class(text):
-    '''Function to predict sentiment class of the passed text'''
-    
-    sentiment_classes = ['Negative', 'Neutral', 'Positive']
-    max_len=50
-    
-    # Transforms text to a sequence of integers using a tokenizer object
-    xt = tokenizer.texts_to_sequences(text)
-    # Pad sequences to the same length
-    xt = pad_sequences(xt, padding='post', maxlen=max_len)
-    # Do the prediction using the loaded model
+if not os.path.exists(TOKENIZER_PATH):
+    raise FileNotFoundError(f"❌ Tokenizer file '{TOKENIZER_PATH}' not found!")
+
+# ✅ Load model with custom objects
+try:
+    model = load_model(MODEL_PATH, custom_objects={"LSTM": CustomLSTM, "f1_score": f1_score}, compile=False)
+    print("✅ Model loaded successfully!")
+except Exception as e:
+    raise RuntimeError(f"❌ Error loading model: {str(e)}")
+
+# ✅ Load tokenizer
+try:
+    with open(TOKENIZER_PATH, "rb") as handle:
+        tokenizer = pickle.load(handle)
+    print("✅ Tokenizer loaded successfully!")
+except Exception as e:
+    raise RuntimeError(f"❌ Error loading tokenizer: {str(e)}")
+
+# ✅ Define sentiment labels
+sentiment_classes = ["Negative", "Neutral", "Positive"]
+max_len = 50  # Should match training config
+
+def predict_class(text: str):
+    """Predict sentiment class of the input text"""
+    xt = tokenizer.texts_to_sequences([text])
+    xt = pad_sequences(xt, padding="post", maxlen=max_len)
     yt = model.predict(xt).argmax(axis=1)
-    # Print the predicted sentiment
-    print('The predicted sentiment is', sentiment_classes[yt[0]])
     return sentiment_classes[yt[0]]
 
-@app.route('/')
-def index():
-	return render_template("index.html", data = "Hey")
+# ✅ FastAPI Routes
+@app.get("/")
+def home():
+    return {"message": "Welcome to the Sentiment Analysis API!"}
 
-@app.route('/SENTIMENTAL_CHECK',methods=["POST"])
-def SENTIMENTAL_CHECK():
-    text = request.form['TEXT']
-    print(text)
-    answer = predict_class([text])
-    return render_template('prediction.html' ,sentence = answer)
+@app.post("/sentiment/")
+def sentimental_check(text: str = Form(...)):
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Input text cannot be empty.")
 
-
-
-if __name__ == "__main__":
-	app.run(debug=True)
-    
+    prediction = predict_class(text)
+    return {"input_text": text, "predicted_sentiment": prediction}
